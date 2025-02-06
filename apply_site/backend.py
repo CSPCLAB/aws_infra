@@ -1,8 +1,8 @@
-from aws_cdk import Stack, aws_ec2 as ec2, aws_iam as iam, Fn
+from aws_cdk import Duration, Stack, aws_ec2 as ec2, aws_iam as iam, Fn, aws_s3 as s3, aws_logs as logs
 from constructs import Construct
 
 
-class Ec2BackendStack(Stack):
+class BackendStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
@@ -29,9 +29,9 @@ class Ec2BackendStack(Stack):
         # EC2 보안 그룹 생성
         ec2_security_group = ec2.SecurityGroup(
             self,
-            "Ec2BackendSecurityGroup",
+            "EC2InstanceSecurityGroup",
             vpc=vpc,
-            description="Allow traffic to/from EC2 for backend",
+            description="Allow traffic to/from EC2",
             allow_all_outbound=True,
         )
 
@@ -39,15 +39,22 @@ class Ec2BackendStack(Stack):
         rds_security_group.add_ingress_rule(
             peer=ec2_security_group,
             connection=ec2.Port.tcp(5432),
-            description="Allow EC2 backend access to RDS",
+            description="Allow EC2 instance access to RDS",
         )
 
-        # IAM 역할 생성
+        media_bucket = s3.Bucket.from_bucket_name(
+            self,
+            "MediaStorageBucket",
+            bucket_name="my-ecs-media-storage-bucket",
+        )
+
+        # IAM 역할 생성 (EC2 인스턴스용)
         ec2_role = iam.Role(
             self,
-            "Ec2BackendRole",
+            "Ec2InstanceRole",
             assumed_by=iam.ServicePrincipal("ec2.amazonaws.com"),
             managed_policies=[
+                iam.ManagedPolicy.from_aws_managed_policy_name("AmazonS3FullAccess"),
                 iam.ManagedPolicy.from_aws_managed_policy_name("AmazonSSMManagedInstanceCore"),
             ],
         )
@@ -59,14 +66,13 @@ class Ec2BackendStack(Stack):
             instance_type=ec2.InstanceType("t4g.micro"),
             machine_image=ec2.MachineImage.latest_amazon_linux2(cpu_type=ec2.AmazonLinuxCpuType.ARM_64),
             vpc=vpc,
-            role=ec2_role,
             security_group=ec2_security_group,
-            vpc_subnets=ec2.SubnetSelection(subnet_type=ec2.SubnetType.PUBLIC),
-        )
-
-        # User Data 스크립트 (Docker 컨테이너 실행)
-        ec2_instance.add_user_data(
-            "#!/bin/bash",
-            "yum update -y",
-            f"echo 'export DB_ENDPOINT={rds_endpoint}' >> /etc/environment",
+            role=ec2_role,
+            user_data=ec2.UserData.custom(
+                """
+                #!/bin/bash
+                yum install -y docker
+                systemctl enable --now docker
+                """
+            ),
         )
