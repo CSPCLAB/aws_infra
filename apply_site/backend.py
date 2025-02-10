@@ -1,4 +1,4 @@
-from aws_cdk import Duration, Stack, aws_ec2 as ec2, aws_iam as iam, Fn, aws_s3 as s3, aws_logs as logs
+from aws_cdk import Duration, Stack, aws_ec2 as ec2, aws_iam as iam, aws_s3 as s3, aws_elasticloadbalancingv2 as elbv2, aws_logs as logs, CfnOutput, Fn, aws_elasticloadbalancingv2_targets as targets
 from constructs import Construct
 
 
@@ -76,3 +76,50 @@ class BackendStack(Stack):
                 """
             ),
         )
+
+        # ALB 보안 그룹 생성
+        alb_security_group = ec2.SecurityGroup(
+            self,
+            "ALBSecurityGroup",
+            vpc=vpc,
+            description="Allow HTTP traffic to ALB",
+            allow_all_outbound=True,
+        )
+        alb_security_group.add_ingress_rule(ec2.Peer.any_ipv4(), ec2.Port.tcp(80), "Allow HTTP")
+
+        # ALB 생성
+        alb = elbv2.ApplicationLoadBalancer(
+            self,
+            "BackendALB",
+            vpc=vpc,
+            internet_facing=True,
+            security_group=alb_security_group,
+        )
+
+        # Target Group 생성 (EC2를 대상으로 지정)
+        target_group = elbv2.ApplicationTargetGroup(
+            self,
+            "BackendTargetGroup",
+            vpc=vpc,
+            protocol=elbv2.ApplicationProtocol.HTTP,
+            port=80,
+            targets=[targets.InstanceTarget(ec2_instance)],
+            health_check=elbv2.HealthCheck(
+                path="/",
+                interval=Duration.seconds(30),
+                timeout=Duration.seconds(5),
+                healthy_threshold_count=2,
+                unhealthy_threshold_count=2,
+            ),
+        )
+
+        # ALB 리스너 생성 (HTTP)
+        listener = alb.add_listener(
+            "Listener",
+            port=80,
+            open=True,
+            default_action=elbv2.ListenerAction.forward([target_group]),
+        )
+
+        # ALB의 DNS 출력
+        CfnOutput(self, "ALBEndpoint", value=alb.load_balancer_dns_name,export_name="ALBEndpoint")
