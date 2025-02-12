@@ -121,5 +121,12 @@ class BackendStack(Stack):
             default_action=elbv2.ListenerAction.forward([target_group]),
         )
 
+        # ALB 리스너 규칙 생성 (HTTP -> Target Group)
+        ec2_security_group.add_ingress_rule(
+            peer=alb_security_group,
+            connection=ec2.Port.tcp(80),
+            description="Allow HTTP traffic from ALB"
+        )
+
         # ALB의 DNS 출력
         CfnOutput(self, "ALBEndpoint", value=alb.load_balancer_dns_name,export_name="ALBEndpoint")

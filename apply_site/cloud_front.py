@@ -80,17 +80,19 @@ class StaticWebsiteStack(Stack):
                 ),
             ],
             additional_behaviors={
-                "/api/*": cloudfront.BehaviorOptions(
-                    origin=origins.HttpOrigin(AlbEndpoint),
-                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+                "/api*": cloudfront.BehaviorOptions(
+                    origin=origins.HttpOrigin(AlbEndpoint,protocol_policy=cloudfront.OriginProtocolPolicy.HTTP_ONLY),
+                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                     allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
                     cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+                    origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
                 ),
-                "/admin/*": cloudfront.BehaviorOptions(
-                    origin=origins.HttpOrigin(AlbEndpoint),
-                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.HTTPS_ONLY,
+                "/admin*": cloudfront.BehaviorOptions(
+                    origin=origins.HttpOrigin(AlbEndpoint,protocol_policy=cloudfront.OriginProtocolPolicy.HTTP_ONLY),
+                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
                     allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
                     cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
+                    origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
                 ),
             },
             price_class=cloudfront.PriceClass.PRICE_CLASS_200,
