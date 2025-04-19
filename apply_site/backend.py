@@ -23,8 +23,6 @@ class BackendStack(Stack):
             self, "ImportedRdsSecurityGroup", security_group_id=Fn.import_value("RdsSecurityGroupId")
         )
 
-        # RDS 엔드포인트 가져오기
-        rds_endpoint = Fn.import_value("RdsEndpoint")
 
         # EC2 보안 그룹 생성
         ec2_security_group = ec2.SecurityGroup(
@@ -42,12 +40,6 @@ class BackendStack(Stack):
             description="Allow EC2 instance access to RDS",
         )
 
-        media_bucket = s3.Bucket.from_bucket_name(
-            self,
-            "MediaStorageBucket",
-            bucket_name="my-ecs-media-storage-bucket",
-        )
-
         # IAM 역할 생성 (EC2 인스턴스용)
         ec2_role = iam.Role(
             self,
@@ -63,7 +55,7 @@ class BackendStack(Stack):
         ec2_instance = ec2.Instance(
             self,
             "BackendInstance",
-            instance_type=ec2.InstanceType("t4g.micro"),
+            instance_type=ec2.InstanceType("t4g.small"),
             machine_image=ec2.MachineImage.latest_amazon_linux2(cpu_type=ec2.AmazonLinuxCpuType.ARM_64),
             vpc=vpc,
             security_group=ec2_security_group,

@@ -16,11 +16,7 @@ app = cdk.App()
 
 infra_stack = InfraStack(app, "InfraStack")
 
-# DatabaseStack 생성
 database_stack = DatabaseStack(app, "DatabaseStack")
-
-# Ec2BackendStack 생성
-backend_stack = BackendStack(app, "ApplySiteBackendStack")
 
 static_site_stack = StaticWebsiteStack(app, "ApplySiteStaticWebsiteStack")
 app.synth()

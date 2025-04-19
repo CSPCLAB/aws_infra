@@ -17,8 +17,6 @@ class StaticWebsiteStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, domain_name: str = "apply.cspc.me", **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        AlbEndpoint = Fn.import_value("ALBEndpoint")
-
         # S3 버킷 생성 (정적 웹사이트 호스팅)
         self.bucket = s3.Bucket(
             self,
@@ -43,6 +41,13 @@ class StaticWebsiteStack(Stack):
                 resources=[self.bucket.arn_for_objects("*")],
                 principals=[iam.AnyPrincipal()],
             )
+        )
+        self.bucket.add_cors_rule(
+            allowed_methods=[s3.HttpMethods.GET],
+            allowed_origins=["*"],
+            allowed_headers=["*"],
+            exposed_headers=["Access-Control-Allow-Origin"],
+            max_age=3000,
         )
 
         # ACM에서 기존 발급된 인증서 가져오기
@@ -79,22 +84,6 @@ class StaticWebsiteStack(Stack):
                     ttl=Duration.seconds(0),
                 ),
             ],
-            additional_behaviors={
-                "/api*": cloudfront.BehaviorOptions(
-                    origin=origins.HttpOrigin(AlbEndpoint,protocol_policy=cloudfront.OriginProtocolPolicy.HTTP_ONLY),
-                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-                    allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
-                    cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
-                    origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
-                ),
-                "/admin*": cloudfront.BehaviorOptions(
-                    origin=origins.HttpOrigin(AlbEndpoint,protocol_policy=cloudfront.OriginProtocolPolicy.HTTP_ONLY),
-                    viewer_protocol_policy=cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-                    allowed_methods=cloudfront.AllowedMethods.ALLOW_ALL,
-                    cache_policy=cloudfront.CachePolicy.CACHING_DISABLED,
-                    origin_request_policy=cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER
-                ),
-            },
             price_class=cloudfront.PriceClass.PRICE_CLASS_200,
             geo_restriction=cloudfront.GeoRestriction.allowlist("KR"),
         )
